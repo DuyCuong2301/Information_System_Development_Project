@@ -1,0 +1,13 @@
+#videoContainer {
+    display: flex;
+  }
+  
+#videoCanvas {
+  margin-right: 10px;
+}
+
+#resultsPanel {
+  width: 400px;
+  border: 1px solid black;
+  padding: 10px;
+}
