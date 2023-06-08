@@ -75,12 +75,13 @@ class Student(models.Model):
     def __str__(self):
         return self.admin.last_name + " " + self.admin.first_name + ' ' + self.student_id
 
-    def get_image_path(self):
-        return os.path.join('student_images', self.student_id, "")
+    def get_image_path(self, filename):
+        return os.path.join('student_images', self.student.student_id, filename)
 
 class StudentImage(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
-    image = models.ImageField(upload_to=Student.get_image_path)
+    images = models.ImageField(upload_to=Student.get_image_path)
+
 
 class Attendance(models.Model):
     clazz = models.ForeignKey(Clazz, on_delete=models.CASCADE)

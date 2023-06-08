@@ -34,7 +34,7 @@
               <button type="submit">Delete</button>
             </form>
           </td>
-        </tr>
+        </tr>  
       {% empty %}
         <tr>
           <td colspan="6">No students found</td>
@@ -42,5 +42,13 @@
       {% endfor %}
     </tbody>
   </table>
+
+  {% if messages %}
+    <ul class="messages">
+      {% for message in messages %}
+        <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
   
 {% endblock %}

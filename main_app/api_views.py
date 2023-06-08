@@ -8,27 +8,6 @@ import os
 from django.db import transaction
 from django.shortcuts import redirect, render, get_object_or_404
 
-def class_face_encoding(class_id):
-
-    known_face_encodings = []
-    known_face_id = []
-
-    students = Student.objects.filter(classes__clazz_id = class_id)
-    for student in students:
-        filepaths = StudentImage.objects.filter(student=student)
-        for filepath in filepaths:
-            std_image = face_recognition.load_image_file(filepath)
-            face_encode = face_recognition.face_encodings(std_image)[0]
-            face_id = student.student_id
-            known_face_encodings.append(face_encode)
-            known_face_id.append(face_id)
-    
-    face_encode_load_path = os.path.join('class_encoded', class_id, 'known_face_encodings.npy')
-    face_id_load_path  = os.path.join('class_encoded', class_id, 'known_face_ids.npy')
-    
-    np.save(face_encode_load_path, known_face_encodings)
-    np.save(face_id_load_path, known_face_id)
-
 known_face_encodings = np.load("/home/cuong/Project2.1/known_face_encodings.npy")
 known_face_ids = np.load("/home/cuong/Project2.1/known_face_names.npy")
 
@@ -40,6 +19,7 @@ def recognize_faces(request):
         frame = request.FILES.get('image')  # Retrieve the uploaded image
         pk = request.POST.get('clazz_id')  # Retrieve the selected class ID from the request
         clazz = get_object_or_404(Clazz, pk=pk)
+        class_id = clazz.clazz_id
         all_students = clazz.students.all()
         date = datetime.date.today()  # Get the current date
 
@@ -65,11 +45,11 @@ def recognize_faces(request):
 
 
             # Get the label
-            # face_encode_load_path = os.path.join('class_encoded', clazz_id, 'known_face_encodings.npy')
-            # face_id_load_path = os.path.join('class_encoded', clazz_id, 'known_face_ids.npy')
+            face_encode_load_path = os.path.join('class_encoded', class_id, 'known_face_encodings.npy')
+            face_id_load_path = os.path.join('class_encoded', class_id, 'known_face_ids.npy')
 
-            # known_face_encodings = np.load(face_encode_load_path)
-            # known_face_ids = np.load(face_id_load_path)
+            known_face_encodings = np.load(face_encode_load_path)
+            known_face_ids = np.load(face_id_load_path)
 
             for face_encoding in face_encodings:
                 # See if the face is a match for the known face(s)

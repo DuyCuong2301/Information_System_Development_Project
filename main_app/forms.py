@@ -131,7 +131,7 @@ class ClazzForm(FormSettings):
 
     class Meta:
         model = Clazz
-        fields = ['name', 'clazz_id', 'semester', 'teacher']
+        fields = ['name', 'clazz_id', 'semester', 'teacher', 'place', 'schedule']
 
 # class SessionForm(FormSettings):
 #     def __init__(self, *args, **kwargs):

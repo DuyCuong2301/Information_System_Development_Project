@@ -22,8 +22,9 @@ urlpatterns = [
     path('admin/class/<int:clazz_id>/', admin_views.class_detail, name='admin_class_detail'),
     path('admin/class/<int:clazz_id>/remove-student/<str:student_id>/', admin_views.remove_student_from_clazz, name='remove_student_from_clazz'),
    
-
+    path("admin/manage_staff/", admin_views.manage_staff, name='manage_staff'),
     path("admin/add_staff/", admin_views.add_staff, name="add_staff"),
+    path('delete_staff/<str:staff_id>/', admin_views.delete_staff, name='delete_staff'),
 
     path("admin/manage_student/", admin_views.manage_student, name='manage_student'),
     path("admin/add_student/", admin_views.add_student, name="add_student"),
@@ -40,10 +41,7 @@ urlpatterns = [
 
 
     path('staff/feedback/', staff_views.staff_feedback, name='staff_feedback'),
-    # path("staff/update_attendance/", staff_views.update_attendance, name="update_attendance"),
-    # path("staff/get_student_attendance", staff_views.get_student_attendance, name="get_student_attendance"),
-    # path("staff/view_profile/", staff_views.staff_view_profile, name="staff_view_profile"),
-    
+   
     #Student path
     path("student/home/", student_views.student_home, name="student_home"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

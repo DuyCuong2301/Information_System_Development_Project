@@ -2,6 +2,8 @@ from django.contrib import messages
 from django.core.files.storage import FileSystemStorage
 from django.urls import reverse
 from django.shortcuts import render, redirect, get_object_or_404
+import shutil
+from django.conf import settings
 
 from .models import *
 from .forms import *
@@ -22,23 +24,15 @@ def admin_home(request):
 
 # Manage staff section
 def manage_staff(request):
-
-    staff_id = request.GET.get('staff_id')
-
-    if staff_id:
-        all_staff = Clazz.objects.filter(staff_id=staff_id)
-    else:
-        all_staff = Clazz.objects.all()
-
-    context = {
-        'all_staff': all_staff
-    }
-
-    return render(request, "admin_template/manage_staff.html", context)
+    search_query = request.GET.get('search_query', '')
+    
+    staffs = Staff.objects.filter(staff_id__icontains=search_query)
+    context = {'staffs': staffs, 'search_query': search_query}
+    return render(request, 'admin_template/manage_staff.html', context)
 
 
 
-def add_staff(request):
+def add_staff(request):  
     form = StaffForm(request.POST or None, request.FILES or None)
     context = {'form': form, 'page_title': 'Add Staff'}
     if request.method == 'POST':
@@ -68,11 +62,16 @@ def add_staff(request):
     
     return render(request, 'admin_template/add_staff.html', context)
 
-def staff_detail(request):
-    pass
+def delete_staff(request, staff_id):
+    try:
+        staff = Staff.objects.get(staff_id=staff_id)
+        staff.admin.delete()  # Delete the associated user instance
 
-def delete_staff(request):
-    pass
+        messages.success(request, 'Teacher deleted successfully')
+    except Student.DoesNotExist:
+        messages.error(request, 'Teacher not found')
+    
+    return redirect('main_app:manage_staff')
 
 # Manage student section
 def manage_student(request):
@@ -110,9 +109,10 @@ def add_student(request):
                 user.save()
 
                 # Associate image with the student
-                image_instance = image_form.save(commit=False)
-                image_instance.student = user.student
-                image_instance.save()
+                images = image_form.cleaned_data['images']
+                for image in images:
+                    image_instance = StudentImage(student=user.student, images=image)
+                    image_instance.save()
 
                 messages.success(request, 'Successfully Added')
                 return redirect(reverse('main_app:add_student'))
@@ -124,15 +124,49 @@ def add_student(request):
 
     return render(request, 'admin_template/add_student.html', context)
 
+
 def delete_student(request, student_id):
     try:
         student = Student.objects.get(student_id=student_id)
         student.admin.delete()  # Delete the associated user instance
+
+        # Delete the student's image folder
+        media_path = os.path.join(settings.MEDIA_ROOT, 'student_images', str(student_id))
+        shutil.rmtree(media_path)
+
         messages.success(request, 'Student deleted successfully')
     except Student.DoesNotExist:
         messages.error(request, 'Student not found')
     
     return redirect('main_app:manage_student')
+
+# Class encoding
+import face_recognition
+import numpy as np
+
+def class_face_encoding(class_id):
+
+    known_face_encodings = []
+    known_face_id = []
+
+    students = Student.objects.filter(classes__clazz_id = class_id)
+    for student in students:
+        filepaths = StudentImage.objects.filter(student=student)
+        for filepath in filepaths:
+            std_image = face_recognition.load_image_file(filepath.images.path)
+            face_encode = face_recognition.face_encodings(std_image)[0]
+            face_id = student.student_id
+            known_face_encodings.append(face_encode)
+            known_face_id.append(face_id)
+    
+    face_encode_load_path = os.path.join('class_encoded', class_id, 'known_face_encodings.npy')
+    face_id_load_path  = os.path.join('class_encoded', class_id, 'known_face_ids.npy')
+    
+    os.makedirs(os.path.dirname(face_encode_load_path), exist_ok=True)
+
+    np.save(face_encode_load_path, known_face_encodings)
+    np.save(face_id_load_path, known_face_id)
+
 
 # Manage class section
 
@@ -169,12 +203,17 @@ def add_class(request):
             class_id = form.cleaned_data.get('clazz_id')
             semester = form.cleaned_data.get('semester')
             teacher = form.cleaned_data.get('teacher')
+            place = form.cleaned_data.get('place')
+            schedule = form.cleaned_data.get('schedule')
+
             try:
                 clazz = Clazz()
                 clazz.name = name
                 clazz.clazz_id = class_id
                 clazz.teacher = teacher
                 clazz.semester = semester
+                clazz.place = place
+                clazz.schedule = schedule
                 clazz.save()
                 messages.success(request, 'Successfully Added')
                 return redirect(reverse('main_app:add_class'))
@@ -190,6 +229,7 @@ def add_class(request):
 
 def class_detail(request, clazz_id):
     clazz = get_object_or_404(Clazz, pk=clazz_id)
+    class_id = clazz.clazz_id
     students = clazz.students.all()
 
     if request.method == 'POST':
@@ -197,6 +237,7 @@ def class_detail(request, clazz_id):
         try:
             student = Student.objects.get(student_id=student_id)
             clazz.students.add(student)
+            class_face_encoding(class_id=class_id)
             return redirect('main_app:admin_class_detail', clazz_id=clazz_id)
         except Student.DoesNotExist:
             messages.error(request, "Sinh viên bạn đang tìm không tồn tại.")
@@ -210,10 +251,12 @@ def class_detail(request, clazz_id):
 
 def remove_student_from_clazz(request, clazz_id, student_id):
     clazz = get_object_or_404(Clazz, pk=clazz_id)
+    class_id = clazz.clazz_id
     student = get_object_or_404(Student, student_id=student_id)
 
     if request.method == 'POST':
         clazz.students.remove(student)
+        class_face_encoding(class_id=class_id)
         return redirect('main_app:admin_class_detail', clazz_id=clazz_id)
 
     context = {
@@ -225,8 +268,13 @@ def remove_student_from_clazz(request, clazz_id, student_id):
 def delete_class(request, clazz_id):
     clazz = get_object_or_404(Clazz, pk=clazz_id)
     class_name = clazz.name
+    class_id = clazz.clazz_id
 
     if request.method == 'POST':
+        # Delete the class folder and its contents
+        class_folder = os.path.join('class_encoded', str(class_id))
+        shutil.rmtree(class_folder)
+
         clazz.delete()
         messages.success(request, f"The class '{class_name}' has been deleted.")
         return redirect('main_app:manage_class') 
